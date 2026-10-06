@@ -10,6 +10,27 @@ A skill for AI coding agents that scaffolds a production-ready Next.js editor fo
 
 Example screenshots generated with this skill were accepted for [Bloom Coffee Shelf Recipe on the App Store](https://apps.apple.com/us/app/bloom-coffee-shelf-recipe/id6759914524).
 
+## What This Fork Adds
+
+Everything else in this README describes the upstream project. These are the changes made here:
+
+**Skill**
+
+- `SKILL.md` points to one source each instead of repeating it: `copy-ideas.md` for headlines, `style-prompts.md` and `_QUALITY_BAR.md` for styles, frames, and the 220px thumbnail check.
+- The project migration script lives in `migrate-project.cjs` and is run with `node`. A test harness checks that it matches the test fixture.
+- Package-manager detection picks bun, then pnpm, then yarn, then npm.
+- A root `AGENTS.md` tells agents where the runnable template, docs, and tests are.
+
+**Editor**
+
+- **Zoom out to 5%**: **Fit all screens** shows the whole deck at once, and pinch or ⌘-scroll zooms on a trackpad.
+- **Multi-device export**: the arrow next to **Export bundle** lets you tick several devices and download one zip. A device whose images fail to load is skipped and the rest still export.
+- **Theme colors**: the palette button next to the theme menu edits the open theme's background, text, accent, and muted colors for this project. Edits are saved per theme in `themeColors`, and **Reset colors** restores the built-in palette.
+
+**Docs**
+
+- A full Turkish translation in [`README.tr.md`](README.tr.md).
+
 ## What It Does
 
 - Builds a full screenshot editor instead of a static one-off page

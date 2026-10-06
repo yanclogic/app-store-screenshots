@@ -10,6 +10,27 @@ Bu, AI kodlama agent'ları için bir skill. App Store ve Google Play pazarlama e
 
 Bu skill ile üretilen örnek ekran görüntüleri [App Store'daki Bloom Coffee Shelf Recipe](https://apps.apple.com/us/app/bloom-coffee-shelf-recipe/id6759914524) uygulamasında kabul edildi.
 
+## Bu Fork'ta Neler Eklendi
+
+Bu README'nin geri kalanı upstream projeyi anlatıyor. Burada yapılan değişiklikler şunlar:
+
+**Skill**
+
+- `SKILL.md` aynı bilgiyi tekrarlamak yerine her konu için tek bir kaynağa yönlendiriyor: başlıklar için `copy-ideas.md`; stiller, çerçeveler ve 220px küçük görsel kontrolü için `style-prompts.md` ve `_QUALITY_BAR.md`.
+- Proje migrasyon script'i `migrate-project.cjs` dosyasında duruyor ve `node` ile çalıştırılıyor. Bir test, script'in test fixture'ıyla aynı kaldığını kontrol ediyor.
+- Paket yöneticisi sırayla bun, pnpm, yarn ve npm olarak seçiliyor.
+- Kök dizindeki `AGENTS.md`, agent'lara çalıştırılabilir şablonun, dokümanların ve testlerin nerede olduğunu gösteriyor.
+
+**Editör**
+
+- **%5'e kadar zoom out**: **Fit all screens** tüm desteyi tek ekranda gösteriyor; trackpad'de pinch veya ⌘ + scroll ile de yakınlaştırılabiliyor.
+- **Çoklu cihaz export'u**: **Export bundle**'ın yanındaki ok menüsünden birden fazla cihaz seçip tek zip indirebiliyorsun. Görselleri yüklenemeyen cihaz atlanıyor, diğerleri yine export ediliyor.
+- **Tema renkleri**: tema menüsünün yanındaki palet butonu, açık temanın arka plan, yazı, vurgu ve soluk renklerini bu proje için düzenliyor. Değişiklikler tema başına `themeColors` alanına kaydediliyor; **Reset colors** hazır renklere döndürüyor.
+
+**Dokümanlar**
+
+- `README.tr.md`: README'nin tam Türkçe çevirisi (bu dosya).
+
 ## Ne Yapar
 
 - Tek seferlik statik bir sayfa yerine tam bir ekran görüntüsü editörü kurar
