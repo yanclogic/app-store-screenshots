@@ -1,6 +1,6 @@
 ---
 name: app-store-screenshots
-description: Scaffold an App Store, Mac App Store, or Google Play screenshot editor. Use when the user wants store screenshots, a feature graphic, or a device-framed marketing deck for iOS, macOS, or Android.
+description: Scaffold an App Store, Mac App Store, or Google Play screenshot editor. Use when the user wants store screenshots, a product page header, search results asset, iPhone Duo shots, a feature graphic, or a device-framed marketing deck for iOS, macOS, or Android.
 ---
 
 # App Store & Google Play Screenshots Generator
@@ -25,10 +25,14 @@ Scaffold a pre-built Next.js + ShadCN editor that lets the user design and expor
 
 Supported devices out of the box:
 - **iPhone** (portrait) — Apple App Store
+- **iPhone Duo** (portrait + landscape) — Apple App Store. Optional until April 2027, then required on every submission. See "Product page header, search results and iPhone Duo" under Step 5
 - **iPad** (portrait) — Apple App Store
 - **Apple TV** (landscape, 4K + HD) — Apple App Store
 - **Apple Watch** (portrait, every Ultra/Series size) — Apple App Store
 - **CarPlay** (landscape head unit) — uploaded into the **iPhone** slot; see "Apple TV, Apple Watch and CarPlay" under Step 5
+- **Product page header** (21:9, `3840×1646`) — optional App Store creative asset
+- **Search results** (3:2, `3840×2560` and `1920×1280`) — optional App Store creative asset
+- **Universal 16:9** (`5244×2950`) — one PNG for both placements when "Use header asset in search results" is on
 - **Mac** (16:10 landscape, own **Mac** tab) — Mac App Store (`2880×1800`, `2560×1600`, `1440×900`, `1280×800`); see "Mac" under Step 5
 - **Android Phone** (portrait) — Google Play
 - **Android Tablet 7"** (portrait + landscape) — Google Play
@@ -469,6 +473,21 @@ Every Apple TV and Apple Watch size below was read from App Store Connect's own 
 - **Screenshots:** a full-screen capture (⌘⇧3) at a 16:10 resolution is the cleanest source. Notched MacBook Pros capture at ~1.54:1, which loses a few percent off the bottom (the Dock). A single-window capture (⌘⇧4, then Space) already has its own title bar, so the frame would draw a second one: crop the window's title bar off first, or use a full-screen capture.
 - **Layouts:** the starter deck is `hero` → `split-landscape` → `device-top` (inverted) → `two-devices` → `no-device`. Because the window is contained, `hero` and `device-bottom` look almost the same; prefer `split-landscape` or `two-devices` (two overlapping windows) for variety.
 
+### Product page header, search results and iPhone Duo
+
+These are separate iOS decks. Edit them like iPhone and iPad: same layouts, copy, theme and connected canvas. Export is opaque PNG. This editor does not produce the optional header or search videos.
+
+| Deck | ASC placement | Export | Canvas |
+|---|---|---|---|
+| `header` | Product page header | 3840×1646 (21:9) | 3840×1646 |
+| `search` | Search results | 3840×2560 and 1920×1280 (3:2) | 3840×2560 |
+| `universal` | Both, when "Use header asset in search results" is on | 5244×2950 (16:9) | 5244×2950 |
+| `iphone-duo` | App Previews and Screenshots → Duo | Open 2007×2853 or Closed 1398×2034. Landscape: 2853×2007 or 2034×1398 | 2007×2853 (export scales Closed) |
+
+- **Three banner aspects, three decks.** 21:9, 3:2 and 16:9 do not share a canvas. The phone on those decks is the iPhone frame.
+- **Duo has an Open and a Closed screen.** Open is the inner display (2007×2853). Closed is the outer display (1398×2034). The toolbar control picks which one the deck is designed and exported at. Switch orientation and export again for the landscape pair. Optional until April 2027, then required.
+- **Zip path:** `ios/<device>/<WxH>/<locale>/`.
+
 ## Step 6: Final QA Gate
 
 ### Message Quality
@@ -480,6 +499,7 @@ Every Apple TV and Apple Watch size below was read from App Store Connect's own 
 - No two adjacent slides share the same layout
 - Landscape tablet slides use `split-landscape` — never two devices side-by-side
 - Apple TV, CarPlay and Mac decks lead with `split-landscape` or `hero`; Watch headlines fit on the 422 px canvas without wrapping mid-phrase
+- Header, search and universal decks export their own aspect; each iPhone Duo screen exports its own Open or Closed size, and landscape only after the orientation switch
 - At least one contrast (`inverted: true`) slide when the deck is long enough
 - For decks with 5+ slides, either one cross-screen/cross-canvas moment exists or there is a clear reason to keep every screen isolated
 - Cross-screen moments are limited to adjacent screens and never split text, required info, faces, or critical UI

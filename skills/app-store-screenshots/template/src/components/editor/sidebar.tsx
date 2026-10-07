@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Device, Orientation, Scene, Slide, Theme } from "@/lib/types";
+import type { Device, DuoFace, Orientation, Scene, Slide, Theme } from "@/lib/types";
 import { newSlide } from "@/lib/defaults";
 import { SlideThumb } from "./slide-thumb";
 
@@ -26,6 +26,7 @@ type Props = {
   activeId: string | null;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   theme: Theme;
   locale: string;
   appName?: string;
@@ -46,6 +47,7 @@ export function Sidebar({
   activeId,
   device,
   orientation,
+  duoFace,
   theme,
   locale,
   appName,
@@ -96,6 +98,7 @@ export function Sidebar({
                   active={slide.id === activeId}
                   device={device}
                   orientation={orientation}
+                  duoFace={duoFace}
                   theme={theme}
                   locale={locale}
                   appName={appName}
@@ -131,7 +134,7 @@ export function Sidebar({
               newSlide(
                 device === "feature-graphic"
                   ? "feature-graphic"
-                  : device === "mac"
+                  : device === "mac" || device === "header" || device === "search" || device === "universal"
                     ? "split-landscape"
                     : "device-bottom",
               ),

@@ -282,10 +282,12 @@ export function withLocks(look: Look, base: Look, locks: Locks): Look {
   };
 }
 
-// Phones and portrait tablets have the full set of portrait layouts. Landscape
-// canvases, watches and the Play banner keep their own layouts.
+// Phones and portrait tablets have the full set of portrait layouts. iPhone Duo
+// rearranges in portrait only. Landscape canvases, watches, store banners and
+// the Play banner keep their own layouts.
 export function canRearrange(device: Device, orientation: ProjectState["orientation"]) {
   if (device === "iphone" || device === "android" || device === "ipad") return true;
+  if (device === "iphone-duo") return orientation === "portrait";
   if (device === "android-7" || device === "android-10") return orientation === "portrait" || !supportsLandscape(device);
   return false;
 }

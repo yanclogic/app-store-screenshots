@@ -11,7 +11,15 @@ export function exportAssetPaths(state: ProjectState): string[] {
       continue;
     }
     if (slide.layout !== "no-device" || slide.transforms?.device || slide.transforms?.deviceSecondary) {
-      if (state.device === "iphone") add("/mockup.png");
+      if (state.device === "iphone" || state.device === "header" || state.device === "search" || state.device === "universal") {
+        add("/mockup.png");
+      }
+      if (state.device === "iphone-duo") {
+        const fallback = state.duoFace === "outer" ? "outer" : "inner";
+        const face = slide.duoFace === "inner" || slide.duoFace === "outer" ? slide.duoFace : fallback;
+        const side = state.orientation === "landscape" ? "landscape" : "portrait";
+        add(`/duo-${face}-${side}.png`);
+      }
       for (const locale of state.locales) {
         add(resolveScreenshot(slide.screenshot, locale));
         if (slide.layout === "two-devices" || slide.transforms?.deviceSecondary) {

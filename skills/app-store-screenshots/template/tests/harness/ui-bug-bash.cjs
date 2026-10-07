@@ -100,11 +100,11 @@ const fixture=(extra={})=>({schemaVersion:2,appName:'UI bug bash',themeId:'clean
       await page.getByRole('button',{name:'Undo',exact:true}).click();await pause(750);assert.equal(latest().slidesByDevice.watchos[0].imageElements.length,1);await page.close();
     });
     await check('all devices and layouts render and remain editable in both tablet orientations',async()=>{
-      const devices=['iphone','ipad','tvos','watchos','carplay','mac','android','android-7','android-10','feature-graphic'];
+      const devices=['iphone','iphone-duo','ipad','tvos','watchos','carplay','header','search','universal','mac','android','android-7','android-10','feature-graphic'];
       const layouts=['Hero','Device bottom','Device top','Two devices','No device','Split (landscape)'];
       for(const device of devices) {
         const {page,latest}=await open(fixture({device,slidesByDevice:{[device]:[slide('Layout',{layout:device==='feature-graphic'?'feature-graphic':'hero'})]}}));
-        for(const orientation of (device==='android-7'||device==='android-10'?['portrait','landscape']:['portrait'])) {
+        for(const orientation of (device==='android-7'||device==='android-10'||device==='iphone-duo'?['portrait','landscape']:['portrait'])) {
           if(orientation==='landscape'){await page.getByRole('combobox',{name:'Orientation',exact:true}).click();await page.getByRole('option',{name:'Landscape',exact:true}).click();}
           for(const layout of (device==='feature-graphic'?['Feature graphic']:layouts)) {
             await page.getByRole('combobox',{name:'Layout',exact:true}).click();await page.getByRole('option',{name:layout,exact:true}).click();

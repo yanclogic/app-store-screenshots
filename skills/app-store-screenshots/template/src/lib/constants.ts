@@ -1,8 +1,10 @@
-import type { Device, Orientation, Platform, ScreenshotFontId, SlideLayout, Theme, ThemeColorKey, ThemeColors, ThemeId } from "./types";
+import type { Device, DuoFace, Orientation, Platform, ScreenshotFontId, SlideLayout, Theme, ThemeColorKey, ThemeColors, ThemeId } from "./types";
 
 // ---------- Canvas dimensions (design at largest required resolution) ----------
 export const CANVAS: Record<Device, { w: number; h: number; wL?: number; hL?: number }> = {
   iphone:        { w: 1320, h: 2868 },
+  // iPhone Duo open (inner) canvas. Closed uses the outer sizes in duoCanvas.
+  "iphone-duo":  { w: 2007, h: 2853, wL: 2853, hL: 2007 },
   ipad:          { w: 2064, h: 2752 },
   // Apple TV is 16:9 landscape-only. Design at 4K; 1920x1080 is a clean 2x downscale.
   tvos:          { w: 3840, h: 2160 },
@@ -13,6 +15,11 @@ export const CANVAS: Record<Device, { w: number; h: number; wL?: number; hL?: nu
   // It is submitted in an iPhone slot, which accepts landscape, so the canvas is
   // the 6.9" iPhone size turned sideways to fit a wide head unit.
   carplay:       { w: 2868, h: 1320 },
+  // Optional App Store product-page assets (Oct 2026). Each aspect is its own
+  // canvas: 21:9, 3:2 and 16:9 cannot share a cover-crop.
+  header:        { w: 3840, h: 1646 },
+  search:        { w: 3840, h: 2560 },
+  universal:     { w: 5244, h: 2950 },
   // Mac App Store is landscape-only 16:10. Design at 2880x1800; every other Mac
   // slot is an exact 16:10 downscale.
   mac:           { w: 2880, h: 1800 },
@@ -31,6 +38,10 @@ export const EXPORT_SIZES: Record<Device, ExportSize[]> = {
     { label: '6.5"', w: 1284, h: 2778 },
     { label: '6.3"', w: 1206, h: 2622 },
     { label: '6.1"', w: 1125, h: 2436 },
+  ],
+  "iphone-duo": [
+    { label: "Inner", w: 2007, h: 2853 },
+    { label: "Outer", w: 1398, h: 2034 },
   ],
   ipad: [
     { label: '13" iPad',       w: 2064, h: 2752 },
@@ -65,6 +76,12 @@ export const EXPORT_SIZES: Record<Device, ExportSize[]> = {
     { label: '6.3" landscape', w: 2622, h: 1206 },
     { label: '6.1" landscape', w: 2436, h: 1125 },
   ],
+  header: [{ label: "21:9", w: 3840, h: 1646 }],
+  search: [
+    { label: "3:2", w: 3840, h: 2560 },
+    { label: "3:2 small", w: 1920, h: 1280 },
+  ],
+  universal: [{ label: "16:9", w: 5244, h: 2950 }],
   // App Store Connect display type APP_DESKTOP (Mac App Store). These four
   // 16:10 sizes are the only accepted dimensions.
   mac: [
@@ -79,8 +96,12 @@ export const EXPORT_SIZES: Record<Device, ExportSize[]> = {
   "feature-graphic": [{ label: "Feature Graphic", w: 1024, h: 500 }],
 };
 
-// Landscape sizes (tablets only)
+// Landscape sizes. Portrait export uses EXPORT_SIZES; switch orientation to emit these.
 export const EXPORT_SIZES_LANDSCAPE: Partial<Record<Device, ExportSize[]>> = {
+  "iphone-duo": [
+    { label: "Inner", w: 2853, h: 2007 },
+    { label: "Outer", w: 2034, h: 1398 },
+  ],
   "android-7":  [{ label: '7" Landscape',  w: 1920, h: 1200 }],
   "android-10": [{ label: '10" Landscape', w: 2560, h: 1600 }],
 };
@@ -89,11 +110,31 @@ export function supportsLandscape(device: Device): boolean {
   return device in EXPORT_SIZES_LANDSCAPE;
 }
 
-export function getExportSizes(device: Device, orientation: Orientation): ExportSize[] {
-  if (orientation === "landscape") {
-    return EXPORT_SIZES_LANDSCAPE[device] || EXPORT_SIZES[device];
+export function normalizeDuoFace(face: DuoFace | undefined): DuoFace {
+  return face === "outer" ? "outer" : "inner";
+}
+
+/** A slide's own face wins. Otherwise the project face, which defaults to open. */
+export function resolveDuoFace(face: DuoFace | undefined, fallback?: DuoFace): DuoFace {
+  if (face === "inner" || face === "outer") return face;
+  return normalizeDuoFace(fallback);
+}
+
+export function getExportSizes(device: Device, orientation: Orientation, face?: DuoFace): ExportSize[] {
+  const sizes = orientation === "landscape"
+    ? EXPORT_SIZES_LANDSCAPE[device] || EXPORT_SIZES[device]
+    : EXPORT_SIZES[device];
+  if (device !== "iphone-duo") return sizes;
+  const label = normalizeDuoFace(face) === "outer" ? "Outer" : "Inner";
+  return sizes.filter((size) => size.label === label);
+}
+
+/** Export pixels for one Duo face. The editor page is always the open canvas. */
+export function duoCanvas(orientation: Orientation, face?: DuoFace) {
+  if (normalizeDuoFace(face) === "outer") {
+    return orientation === "landscape" ? { cW: 2034, cH: 1398 } : { cW: 1398, cH: 2034 };
   }
-  return EXPORT_SIZES[device];
+  return orientation === "landscape" ? { cW: 2853, cH: 2007 } : { cW: 2007, cH: 2853 };
 }
 
 // ---------- Frame aspect ratios ----------
@@ -101,6 +142,24 @@ export const MK_RATIO    = 1022 / 2082; // iPhone PNG mockup
 export const TAB_P_RATIO = 0.667;        // tablet portrait
 export const TAB_L_RATIO = 1.5;          // tablet landscape
 export const IPAD_RATIO  = 0.770;        // iPad
+export const DUO_RATIO   = 2007 / 2853;  // iPhone Duo inner display
+// Hardware frame from the inner-display mockup. Wider than the screen
+// because of the titanium lip. 743×1024 portrait, swapped when landscape.
+export const DUO_FRAME_RATIO = 743 / 1024;
+export const DUO_SCREEN = {
+  L: (40 / 743) * 100,
+  T: (40 / 1024) * 100,
+  W: (663 / 743) * 100,
+  H: (944 / 1024) * 100,
+};
+// Closed outer display. 734×1024 portrait. Camera sits in the screen.
+export const DUO_OUTER_FRAME_RATIO = 734 / 1024;
+export const DUO_OUTER_SCREEN = {
+  L: (41 / 734) * 100,
+  T: (38 / 1024) * 100,
+  W: (652 / 734) * 100,
+  H: (948 / 1024) * 100,
+};
 export const TV_RATIO    = 16 / 9;       // Apple TV - landscape only
 export const WATCH_RATIO = 422 / 514;    // Apple Watch Ultra, the largest accepted slot
 // CarPlay head units vary by vehicle and Apple ships five presets in CarPlay
@@ -139,6 +198,11 @@ export function tabletLW(cW: number, cH: number, clamp = 0.62) {
 }
 export function ipadW(cW: number, cH: number, clamp = 0.75) {
   return Math.min(clamp, 0.72 * (cH / cW) * IPAD_RATIO);
+}
+export function duoW(cW: number, cH: number, clamp = 0.78, face?: DuoFace) {
+  const ratio = normalizeDuoFace(face) === "outer" ? DUO_OUTER_FRAME_RATIO : DUO_FRAME_RATIO;
+  const frame = cW >= cH ? 1 / ratio : ratio;
+  return Math.min(clamp, 0.72 * (cH / cW) * frame);
 }
 // Clamped low so a 16:9 device clears the 0.28-height caption block on a 16:9 canvas.
 export function tvW(cW: number, cH: number, clamp = 0.58) {
@@ -474,14 +538,18 @@ export const PROJECT_SCHEMA_VERSION = 2;
 // export folder (ios/…, macos/…, android/…). Mac gets its own tab because App
 // Store Connect lists macOS as a separate platform with its own screenshot set.
 export const PLATFORM_DEVICES: Record<Platform, Device[]> = {
-  ios: ["iphone", "ipad", "tvos", "watchos", "carplay"],
+  ios: ["iphone", "iphone-duo", "ipad", "tvos", "watchos", "carplay", "header", "search", "universal"],
   macos: ["mac"],
   android: ["android", "android-7", "android-10", "feature-graphic"],
 };
 
 export const DEVICE_LABEL: Record<Device, string> = {
   iphone: "iPhone",
+  "iphone-duo": "iPhone Duo",
   ipad: "iPad",
+  header: "Page Header",
+  search: "Search Results",
+  universal: "Universal 16:9",
   tvos: "Apple TV",
   watchos: "Apple Watch",
   carplay: "CarPlay (iPhone slot)",

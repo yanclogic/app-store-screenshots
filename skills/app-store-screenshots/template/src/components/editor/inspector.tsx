@@ -37,7 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { LAYOUT_HINT, LAYOUT_LABEL } from "@/lib/constants";
 import { COPY_IDEA_SLOTS } from "@/lib/copy-ideas";
-import { nid } from "@/lib/defaults";
+import { detectPlatform, nid } from "@/lib/defaults";
 import { img } from "@/lib/image-cache";
 import {
   isBuiltInElementId,
@@ -63,6 +63,7 @@ import {
 import type {
   BuiltInElementId,
   Device,
+  DuoFace,
   ElementId,
   ElementTransform,
   ImageElement,
@@ -76,12 +77,14 @@ import type {
 import { BackgroundControls } from "./background-controls";
 import { ScreenshotPicker } from "./screenshot-picker";
 import { CalloutControls } from "./callout-controls";
-import { calloutAvailable, getCanvas, getElementTransform } from "./slide-canvas";
+import { calloutAvailable, deviceSizeBasis, getCanvas, getElementTransform } from "./slide-canvas";
 
 type Props = {
   slide: Slide;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
+  setDuoFace: (face: DuoFace) => void;
   theme: Theme;
   locale: string;
   appIcon?: string;
@@ -104,6 +107,8 @@ export function Inspector({
   slide,
   device,
   orientation,
+  duoFace,
+  setDuoFace,
   theme,
   locale,
   appIcon,
@@ -113,6 +118,7 @@ export function Inspector({
   onUpdate,
   onSelectElement,
 }: Props) {
+  const face = slide.duoFace === "inner" || slide.duoFace === "outer" ? slide.duoFace : (duoFace === "outer" ? "outer" : "inner");
   const isFeatureGraphic = device === "feature-graphic" || slide.layout === "feature-graphic";
   const isNoDevice = slide.layout === "no-device";
   const layoutValue = device === "feature-graphic" ? "feature-graphic" : slide.layout;
@@ -146,6 +152,24 @@ export function Inspector({
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-3">
+        {detectPlatform(device) === "ios" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs">Duo screen</Label>
+              <span className="text-[10px] text-muted-foreground">This screen only</span>
+            </div>
+            <Select value={face} onValueChange={(value) => setDuoFace(value as DuoFace)}>
+              <SelectTrigger aria-label="Duo screen">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inner">Open</SelectItem>
+                <SelectItem value="outer">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label className="text-xs">Layout</Label>
           <Select
@@ -220,6 +244,16 @@ export function Inspector({
           </div>
         )}
 
+        {!isFeatureGraphic && !isNoDevice && (
+          <DeviceSizeControl
+            slide={slide}
+            device={device}
+            orientation={orientation}
+            duoFace={face}
+            onChange={onChange}
+          />
+        )}
+
         {slide.layout === "two-devices" && (
           <div className="space-y-1.5">
             <Label className="text-xs">Back device screenshot</Label>
@@ -248,6 +282,7 @@ export function Inspector({
             defaultTextColor={slideColors(theme, slide).fg}
             device={device}
             orientation={orientation}
+            duoFace={face}
             locale={locale}
             selectedElementId={selectedElementId}
             onChange={onChange}
@@ -265,6 +300,98 @@ export function Inspector({
             </p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const DEVICE_SIZE_MIN = 0.4;
+const DEVICE_SIZE_MAX = 1.3;
+
+function DeviceSizeControl({
+  slide,
+  device,
+  orientation,
+  duoFace,
+  onChange,
+}: {
+  slide: Slide;
+  device: Device;
+  orientation: Orientation;
+  duoFace?: DuoFace;
+  onChange: (patch: Partial<Slide>) => void;
+}) {
+  const basis = deviceSizeBasis(slide, device, orientation, duoFace);
+  if (!basis) return null;
+  const saved = slide.transforms?.device;
+  const currentWidth = saved?.width ?? basis.large.width;
+  const scale = currentWidth / basis.large.width;
+  const pct = Math.round(scale * 100);
+  const small = Math.abs(scale - basis.smallScale) < 0.03;
+  const large = Math.abs(scale - 1) < 0.03;
+
+  function applyScale(next: number) {
+    const clamped = Math.min(DEVICE_SIZE_MAX, Math.max(DEVICE_SIZE_MIN, next));
+    const width = basis!.large.width * clamped;
+    const height = width / basis!.frameAspect;
+    const box = saved ?? basis!.large;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const deviceTransform: ElementTransform = {
+      x: cx - width / 2,
+      y: cy - height / 2,
+      width,
+      height,
+      rotation: saved?.rotation ?? 0,
+      zIndex: saved?.zIndex ?? 3,
+    };
+    onChange({ transforms: { ...slide.transforms, device: deviceTransform } });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs">Device size</Label>
+        <span className="text-[10px] text-muted-foreground">This screen only</span>
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <Button
+          type="button"
+          size="sm"
+          variant={small ? "default" : "outline"}
+          className="h-8"
+          aria-pressed={small}
+          onClick={() => applyScale(basis.smallScale)}
+        >
+          Small
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={large ? "default" : "outline"}
+          className="h-8"
+          aria-pressed={large}
+          onClick={() => applyScale(1)}
+        >
+          Large
+        </Button>
+      </div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Image size</Label>
+          <span className="w-9 text-right text-[11px] tabular-nums text-muted-foreground">{pct}%</span>
+        </div>
+        <input
+          type="range"
+          min={Math.round(DEVICE_SIZE_MIN * 100)}
+          max={Math.round(DEVICE_SIZE_MAX * 100)}
+          step={1}
+          value={Math.min(130, Math.max(40, pct))}
+          onChange={(event) => applyScale(Number(event.target.value) / 100)}
+          className="w-full"
+          aria-label="Image size"
+          aria-valuetext={`${pct}%`}
+        />
       </div>
     </div>
   );
@@ -314,6 +441,7 @@ function ElementTransformControls({
   defaultTextColor,
   device,
   orientation,
+  duoFace,
   locale,
   selectedElementId,
   onChange,
@@ -324,6 +452,7 @@ function ElementTransformControls({
   defaultTextColor: string;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   locale: string;
   selectedElementId: ElementId | null;
   onChange: (patch: Partial<Slide>) => void;
@@ -341,9 +470,9 @@ function ElementTransformControls({
   const activeId =
     selectedElementId && present.includes(selectedElementId) ? selectedElementId : null;
   const activeTransform = activeId
-    ? getElementTransform(slide, device, orientation, activeId)
+    ? getElementTransform(slide, device, orientation, activeId, duoFace)
     : undefined;
-  const { cW, cH } = getCanvas(device, orientation);
+  const { cW, cH } = getCanvas(device, orientation, duoFace);
   const activeTextElement =
     activeId && isTextElementId(activeId)
       ? slide.textElements?.find((element) => element.id === textElementKey(activeId))
@@ -354,7 +483,7 @@ function ElementTransformControls({
       : null;
 
   function getTransform(id: ElementId) {
-    return getElementTransform(slide, device, orientation, id);
+    return getElementTransform(slide, device, orientation, id, duoFace);
   }
 
   function patchElement(id: ElementId, patch: Partial<ElementTransform>) {
@@ -472,7 +601,7 @@ function ElementTransformControls({
   }
 
   function addImageElement() {
-    const { cW, cH } = getCanvas(device, orientation);
+    const { cW, cH } = getCanvas(device, orientation, duoFace);
     const id = nid();
     const zIndex = Math.max(5, ...present.map((elementId) => getTransform(elementId)?.zIndex ?? defaultZ(elementId))) + 1;
     const element: ImageElement = {

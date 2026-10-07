@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { MAC_RATIO, MAC_TITLE_BAR, PHONE_SCREEN } from "@/lib/constants";
+import { DUO_OUTER_SCREEN, DUO_SCREEN, MAC_RATIO, MAC_TITLE_BAR, PHONE_SCREEN } from "@/lib/constants";
+import type { DuoFace } from "@/lib/types";
 import { img } from "@/lib/image-cache";
 
 type FrameProps = {
@@ -9,6 +10,7 @@ type FrameProps = {
   style?: React.CSSProperties;
   /** When true, hide EmptySlot placeholder (so it doesn't bake into exports). */
   hideEmpty?: boolean;
+  face?: DuoFace;
 };
 
 // iPhone — uses pre-measured mockup.png overlay
@@ -286,6 +288,61 @@ export function MacWindow({ src, alt = "", style, hideEmpty }: FrameProps) {
       </div>
     </div>
   );
+}
+
+function DuoFrame({ src, alt = "", style, hideEmpty, landscape, face }: FrameProps & { landscape?: boolean }) {
+  const resolved = img(src);
+  const outer = face === "outer";
+  const hole = outer ? DUO_OUTER_SCREEN : DUO_SCREEN;
+  // Landscape frames are the portrait mockups turned, so the hole swaps axes.
+  const screen = landscape
+    ? { L: hole.T, T: hole.L, W: hole.H, H: hole.W }
+    : hole;
+  const frame = outer
+    ? (landscape ? "/duo-outer-landscape.png" : "/duo-outer-portrait.png")
+    : (landscape ? "/duo-inner-landscape.png" : "/duo-inner-portrait.png");
+  return (
+    <div style={{ position: "relative", aspectRatio: outer ? (landscape ? "1024 / 734" : "734 / 1024") : (landscape ? "1024 / 743" : "743 / 1024"), ...style }}>
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 1,
+          overflow: "hidden",
+          left: `${screen.L}%`,
+          top: `${screen.T}%`,
+          width: `${screen.W}%`,
+          height: `${screen.H}%`,
+          background: "#000",
+        }}
+      >
+        {resolved ? (
+          <img
+            src={resolved}
+            alt={alt}
+            style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
+            draggable={false}
+          />
+        ) : hideEmpty ? null : (
+          <EmptySlot />
+        )}
+      </div>
+      <img
+        src={img(frame)}
+        alt=""
+        data-export-check="full"
+        style={{ display: "block", width: "100%", height: "100%", position: "relative", zIndex: 2, pointerEvents: "none" }}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
+export function IPhoneDuo(props: FrameProps) {
+  return <DuoFrame {...props} />;
+}
+
+export function IPhoneDuoL(props: FrameProps) {
+  return <DuoFrame {...props} landscape />;
 }
 
 export function IPad({ src, alt = "", style, hideEmpty }: FrameProps) {

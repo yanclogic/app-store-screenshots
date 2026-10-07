@@ -5,6 +5,7 @@ import { RotateCw } from "lucide-react";
 import type {
   BuiltInElementId,
   Device,
+  DuoFace,
   ElementId,
   ElementTransform,
   ImageElement,
@@ -17,13 +18,19 @@ import type {
 } from "@/lib/types";
 import {
   CANVAS,
+  resolveDuoFace,
   CARPLAY_RATIO,
+  DUO_FRAME_RATIO,
+  DUO_OUTER_FRAME_RATIO,
   IPAD_RATIO,
   MAC_RATIO,
   MK_RATIO,
   TV_RATIO,
   WATCH_RATIO,
   carPlayW,
+  duoCanvas,
+  duoW,
+  normalizeDuoFace,
   ipadW,
   macW,
   phoneW,
@@ -47,6 +54,8 @@ import {
   AndroidTabletL,
   AndroidTabletP,
   IPad,
+  IPhoneDuo,
+  IPhoneDuoL,
   MacWindow,
   Phone,
 } from "./device-frames";
@@ -58,20 +67,46 @@ type FrameComp = React.ComponentType<{
   alt?: string;
   style?: React.CSSProperties;
   hideEmpty?: boolean;
+  face?: DuoFace;
 }>;
 
-export function getCanvas(device: Device, orientation: Orientation) {
+export function getCanvas(device: Device, orientation: Orientation, _face?: DuoFace) {
+  // Open and Closed share one page size. The face only swaps the frame; export scales to that face.
+  if (device === "iphone-duo") return duoCanvas(orientation, "inner");
   const c = CANVAS[device];
-  if ((device === "android-7" || device === "android-10") && orientation === "landscape") {
-    return { cW: c.wL!, cH: c.hL! };
+  if (orientation === "landscape" && c.wL && c.hL) {
+    return { cW: c.wL, cH: c.hL };
   }
   return { cW: c.w, cH: c.h };
 }
 
+/** Every Duo screen uses the same page size. Face changes the frame, not the box. */
+export function deckLayout(slides: Slide[], device: Device, orientation: Orientation, fallback?: DuoFace) {
+  const boxes = slides.map((slide) => getCanvas(device, orientation, resolveDuoFace(slide.duoFace, fallback)));
+  const offsets: number[] = [];
+  let totalW = 0;
+  let height = 0;
+  for (const box of boxes) {
+    offsets.push(totalW);
+    totalW += box.cW;
+    height = Math.max(height, box.cH);
+  }
+  return { boxes, offsets, totalW: Math.max(totalW, 1), height: Math.max(height, 1) };
+}
+
+function duoFrameRatio(orientation: Orientation, face?: DuoFace) {
+  const ratio = normalizeDuoFace(face) === "outer" ? DUO_OUTER_FRAME_RATIO : DUO_FRAME_RATIO;
+  return orientation === "landscape" ? 1 / ratio : ratio;
+}
+
 // Aspect ratio (w/h) of each device frame — must match device-frames.tsx
-function getFrameAspect(device: Device, orientation: Orientation) {
+function getFrameAspect(device: Device, orientation: Orientation, face?: DuoFace) {
   switch (device) {
     case "iphone":      return MK_RATIO;
+    case "iphone-duo":  return duoFrameRatio(orientation, face);
+    case "header":
+    case "search":
+    case "universal":   return MK_RATIO;
     case "android":     return 9 / 19.5;
     case "ipad":        return IPAD_RATIO;
     case "tvos":        return TV_RATIO;
@@ -84,14 +119,21 @@ function getFrameAspect(device: Device, orientation: Orientation) {
   }
 }
 
-export function getFrameForDevice(device: Device, orientation: Orientation): {
+export function getFrameForDevice(device: Device, orientation: Orientation, face?: DuoFace): {
   Comp: FrameComp;
   widthFn: (cW: number, cH: number) => number;
   smallWidthFn: (cW: number, cH: number) => number;
 } {
   switch (device) {
     case "iphone":
+    case "header":
+    case "search":
+    case "universal":
       return { Comp: Phone, widthFn: phoneW, smallWidthFn: phoneWSmall };
+    case "iphone-duo":
+      return orientation === "landscape"
+        ? { Comp: IPhoneDuoL, widthFn: (cW, cH) => duoW(cW, cH, 0.78, face), smallWidthFn: (cW, cH) => duoW(cW, cH, 0.58, face) }
+        : { Comp: IPhoneDuo, widthFn: (cW, cH) => duoW(cW, cH, 0.78, face), smallWidthFn: (cW, cH) => duoW(cW, cH, 0.58, face) };
     case "ipad":
       return { Comp: IPad, widthFn: ipadW, smallWidthFn: (cW, cH) => ipadW(cW, cH, 0.6) };
     case "tvos":
@@ -127,6 +169,7 @@ type Props = {
   slide: Slide;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   theme: Theme;
   locale: string;
   appName?: string;
@@ -159,6 +202,7 @@ type DeckCanvasProps = {
   slides: Slide[];
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   theme: Theme;
   locale: string;
   appName?: string;
@@ -503,10 +547,10 @@ function rectFor(
 // head unit, watch face or Mac window reads as a mistake, not as a deliberate bleed.
 const CONTAINED_DEVICES: ReadonlySet<Device> = new Set<Device>(["tvos", "watchos", "carplay", "mac"]);
 
-function getSlideGeometry(slide: Slide, device: Device, orientation: Orientation) {
-  const { cW, cH } = getCanvas(device, orientation);
-  const { Comp: Frame, widthFn, smallWidthFn } = getFrameForDevice(device, orientation);
-  const frameAspect = getFrameAspect(device, orientation);
+function getSlideGeometry(slide: Slide, device: Device, orientation: Orientation, face?: DuoFace) {
+  const { cW, cH } = getCanvas(device, orientation, face);
+  const { Comp: Frame, widthFn, smallWidthFn } = getFrameForDevice(device, orientation, face);
+  const frameAspect = getFrameAspect(device, orientation, face);
   const fwFrac = widthFn(cW, cH);
   const fwSmallFrac = smallWidthFn(cW, cH);
   const defaults = getDefaultRects(
@@ -515,6 +559,24 @@ function getSlideGeometry(slide: Slide, device: Device, orientation: Orientation
   );
   if (slide.callout && defaults.device) defaults.callout = defaultCalloutRect(defaults.device, cW, cH);
   return { cW, cH, Frame, frameAspect, defaults };
+}
+
+/** Layout box for this slide's device, plus how small the compact preset is relative to it. */
+export function deviceSizeBasis(slide: Slide, device: Device, orientation: Orientation, face?: DuoFace) {
+  const { cW, cH } = getCanvas(device, orientation, face);
+  const { widthFn, smallWidthFn } = getFrameForDevice(device, orientation, face);
+  const frameAspect = getFrameAspect(device, orientation, face);
+  const largeFrac = widthFn(cW, cH);
+  const defaults = getDefaultRects(
+    slide.layout, cW, cH, frameAspect, largeFrac, smallWidthFn(cW, cH),
+    CONTAINED_DEVICES.has(device),
+  );
+  if (!defaults.device || largeFrac <= 0) return null;
+  return {
+    large: defaults.device,
+    smallScale: smallWidthFn(cW, cH) / largeFrac,
+    frameAspect,
+  };
 }
 
 // The loupe starts overlapping the device's upper right, inside the screen.
@@ -541,6 +603,7 @@ export function getElementTransform(
   device: Device,
   orientation: Orientation,
   id: ElementId,
+  face?: DuoFace,
 ): ElementTransform | undefined {
   if (id.startsWith("text:")) {
     const textId = id.slice("text:".length);
@@ -551,7 +614,7 @@ export function getElementTransform(
     const imageId = imageElementKey(id);
     return slide.imageElements?.find((element) => element.id === imageId)?.transform;
   }
-  const { defaults } = getSlideGeometry(slide, device, orientation);
+  const { defaults } = getSlideGeometry(slide, device, orientation, face);
   const rect = rectFor(id as BuiltInElementId, slide, defaults);
   if (!rect) return undefined;
   const saved = slide.transforms?.[id as BuiltInElementId];
@@ -578,6 +641,7 @@ export function SlideCanvas({
   slide,
   device,
   orientation,
+  duoFace,
   theme,
   locale,
   appName,
@@ -592,7 +656,8 @@ export function SlideCanvas({
   stripIndex = 0,
   stripCount = 1,
 }: Props) {
-  const { cW, cH } = getCanvas(device, orientation);
+  const face = resolveDuoFace(slide.duoFace, duoFace);
+  const { cW, cH } = getCanvas(device, orientation, face);
   const scene = sceneOf(rawScene);
 
   if (slide.layout === "feature-graphic" || device === "feature-graphic") {
@@ -635,6 +700,7 @@ export function SlideCanvas({
         scene={scene}
         device={device}
         orientation={orientation}
+        duoFace={face}
         theme={theme}
         locale={locale}
         editable={editable}
@@ -657,6 +723,7 @@ export function DeckCanvas({
   slides,
   device,
   orientation,
+  duoFace,
   theme,
   locale,
   appName,
@@ -674,22 +741,24 @@ export function DeckCanvas({
   stripStart = 0,
   stripCount,
 }: DeckCanvasProps) {
-  const { cW, cH } = getCanvas(device, orientation);
+  const layout = deckLayout(slides, device, orientation, duoFace);
   const scene = sceneOf(rawScene);
-  const totalW = Math.max(1, slides.length) * cW;
+  const totalW = layout.totalW;
+  const stripH = layout.height;
 
   return (
     <div
       style={{
         width: totalW,
-        height: cH,
+        height: stripH,
         position: "relative",
         overflow: "hidden",
         fontFamily,
       }}
     >
       {slides.map((slide, index) => {
-        const screenX = index * cW;
+        const box = layout.boxes[index];
+        const screenX = layout.offsets[index];
         const active = activeSlideId === slide.id;
         if (slide.layout === "feature-graphic" || device === "feature-graphic") {
           return (
@@ -704,14 +773,14 @@ export function DeckCanvas({
                 position: "absolute",
                 left: screenX,
                 top: 0,
-                width: cW,
-                height: cH,
+                width: box.cW,
+                height: box.cH,
                 overflow: "hidden",
               }}
             >
               <FeatureGraphicCanvas
                 slide={slide}
-                cW={cW}
+                cW={box.cW}
                 theme={theme}
                 locale={locale}
                 appName={appName}
@@ -722,7 +791,7 @@ export function DeckCanvas({
                   onSelectElement: () => edit?.onSelectScreen?.(slide.id),
                 }}
               />
-              {showGuides && <ScreenGuide cW={cW} cH={cH} index={index} active={active} />}
+              {showGuides && <ScreenGuide cW={box.cW} cH={box.cH} index={index} active={active} />}
             </div>
           );
         }
@@ -738,13 +807,13 @@ export function DeckCanvas({
               position: "absolute",
               left: screenX,
               top: 0,
-              width: cW,
-              height: cH,
+              width: box.cW,
+              height: box.cH,
               overflow: "hidden",
             }}
           >
-            <SlideBackground slide={slide} cW={cW} cH={cH} theme={theme} scene={scene} index={stripStart + index} count={stripCount ?? slides.length} />
-            {showGuides && <ScreenGuide cW={cW} cH={cH} index={index} active={active} />}
+            <SlideBackground slide={slide} cW={box.cW} cH={box.cH} theme={theme} scene={scene} index={stripStart + index} count={stripCount ?? slides.length} />
+            {showGuides && <ScreenGuide cW={box.cW} cH={box.cH} index={index} active={active} />}
           </div>
         );
       })}
@@ -773,6 +842,7 @@ export function DeckCanvas({
             scene={scene}
             device={device}
             orientation={orientation}
+            duoFace={resolveDuoFace(slide.duoFace, duoFace)}
             theme={theme}
             locale={locale}
             editable={editable}
@@ -780,9 +850,9 @@ export function DeckCanvas({
             selectedElementId={selectedElementId}
             previewScale={previewScale}
             hideEmpty={hideEmpty}
-            screenX={connectedCanvas ? index * cW : 0}
-            boundsW={connectedCanvas ? totalW : cW}
-            boundsH={cH}
+            screenX={connectedCanvas ? layout.offsets[index] : 0}
+            boundsW={connectedCanvas ? totalW : layout.boxes[index].cW}
+            boundsH={connectedCanvas ? stripH : layout.boxes[index].cH}
             allowCrossScreen={connectedCanvas}
           />
         );
@@ -792,10 +862,10 @@ export function DeckCanvas({
             key={`${slide.id}-elements-isolated`}
             style={{
               position: "absolute",
-              left: index * cW,
+              left: layout.offsets[index],
               top: 0,
-              width: cW,
-              height: cH,
+              width: layout.boxes[index].cW,
+              height: layout.boxes[index].cH,
               overflow: "hidden",
             }}
           >
@@ -1001,6 +1071,7 @@ function SlideElements({
   scene,
   device,
   orientation,
+  duoFace,
   theme,
   locale,
   editable,
@@ -1017,6 +1088,7 @@ function SlideElements({
   scene: Scene;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   theme: Theme;
   locale: string;
   editable?: boolean;
@@ -1031,7 +1103,7 @@ function SlideElements({
 }) {
   const screenshot = resolveScreenshot(slide.screenshot, locale);
   const screenshotSecondary = resolveScreenshot(slide.screenshotSecondary, locale);
-  const { cW, cH, Frame, frameAspect, defaults } = getSlideGeometry(slide, device, orientation);
+  const { cW, cH, Frame, frameAspect, defaults } = getSlideGeometry(slide, device, orientation, duoFace);
   const inverted = !!slide.inverted;
   const colors = slideColors(theme, slide);
   const captionRect = rectFor("caption", slide, defaults);
@@ -1131,6 +1203,7 @@ function SlideElements({
           <Frame
             src={src}
             hideEmpty={hideEmpty}
+            face={duoFace}
             style={{ width: "100%", height: "100%", ...extraStyle }}
           />
         </DeviceDepth>

@@ -247,7 +247,7 @@ export function Toolbar(props: Props) {
           onValueChange={(v) => props.setDevice(v as Device)}
           disabled={props.busy}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Device" title="Device">
+          <SelectTrigger className="h-8 w-44 text-xs" aria-label="Device" title="Device">
             <SelectValue placeholder="Device">{deviceLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>

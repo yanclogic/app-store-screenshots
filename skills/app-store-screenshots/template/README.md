@@ -17,9 +17,9 @@ bun dev       # http://localhost:3000
 - **Screen controls** — drag-to-reorder screens, click-to-edit text, screenshot drop targets, per-screen layout switcher, dark/light toggle.
 - **Style Lab and Scene Playground** — compare complete looks for a deck and restyle every screen's backdrop, depth and headline at once. See [Style Lab](#style-lab) and [Scene Playground](#scene-playground).
 - **Image overlays, fonts, backgrounds and undo** — PNG/JPG overlay elements, a live screenshot font menu (with font import), per-screen custom backgrounds, and toolbar Undo/Redo. See [Editor controls](#editor-controls).
-- **Device frames** (`src/components/editor/device-frames.tsx`) — iPhone (PNG mockup), iPad, Apple TV, Apple Watch, CarPlay head unit, Mac window, Android phone, Android tablet (portrait + landscape), feature graphic.
+- **Device frames** (`src/components/editor/device-frames.tsx`) — iPhone (PNG mockup), iPhone Duo, iPad, Apple TV, Apple Watch, CarPlay head unit, Mac window, Android phone, Android tablet (portrait + landscape), product-page header, search results, universal 16:9, feature graphic.
 - **Auto-save (git-trackable)** — every change is persisted within ~600ms to **`app-store-screenshots.json`** at the project root (via `/api/project`) **and** mirrored to `localStorage` as an instant-paint cache. Commit `app-store-screenshots.json` and you can `git clone` to another machine and resume exactly where you left off.
-- **Multi-device decks** — iOS (iPhone, iPad, Apple TV, Apple Watch, CarPlay), Mac, and Android decks live side by side; switching the platform tab keeps each tab's last device.
+- **Multi-device decks** — iOS (iPhone, iPhone Duo, iPad, Apple TV, Apple Watch, CarPlay, product-page header, search results, universal 16:9), Mac, and Android decks live side by side; switching the platform tab keeps each tab's last device.
 - **One-click export** — bulk PNG export at any required App Store / Play Store resolution using `html-to-image`; each PNG is rendered from the current connected or isolated deck mode.
 - **Project migration** — older `app-store-screenshots.json` files are migrated on load. Existing per-slide transforms remain valid, and connected crops become available without rewriting the deck by hand.
 - **Legacy-safe mode** — pre-v2 projects opened directly in the editor start in isolated-screen mode first, then can opt into connected crops with the toolbar's Connected/Isolated control. Skill-run in-place migrations keep legacy decks isolated unless the project had already explicitly opted into connected canvas.
@@ -56,6 +56,8 @@ Each screen is rendered once per locale at canvas resolution (`src/lib/export-re
 
 CarPlay has no App Store Connect slot of its own: the CarPlay deck is a head-unit frame on a landscape iPhone canvas and exports landscape iPhone sizes for upload into the iPhone slot.
 
+iPhone Duo, the product-page header, search results and the universal 16:9 asset are iOS decks in the same device menu. Each Duo screen chooses Open or Closed on its own. The page stays 2007×2853; export scales Closed to 1398×2034. Switch orientation and export again for landscape. Header is 3840×1646, search is 3840×2560 and 1920×1280, universal is 5244×2950. Sizes live in `src/lib/constants.ts`.
+
 Mac is its own platform tab because App Store Connect lists macOS separately from the iOS app. The Mac deck designs at 2880×1800 and exports the four 16:10 Mac App Store sizes (2880×1800, 2560×1600, 1440×900, 1280×800) to `macos/mac/<WxH>/<locale>/`. The Mac window's content area is exactly 16:10, so a full-screen 16:10 capture fills it uncropped.
 
 ## Editor controls
@@ -79,7 +81,7 @@ In the inspector's **Elements** card, click **Image**, then **Pick** (or drop) a
 **Style Lab** in the toolbar opens four complete looks for the open deck, each from a different direction (Editorial, Playful, Cinematic, Minimal on first open; Swiss Bold, Dreamy, Vintage Poster and Panorama join on **Shuffle**). A look sets the theme, which screens are inverted, the font, headline weight/case/alignment/size, each screen's layout, and the scene. Your current deck is pinned at the top for before/after comparison. Copy and screenshots never change.
 
 - **Keep** locks (Colors, Type, Layout, Scene) hold that part of your deck in every look; Shuffle and **Remix** (another take on one direction) only vary what is unlocked.
-- **Apply** writes the look as one undo step. Changing layout resets that screen's built-in placements (headline, devices, magnifier) to the layout defaults; lock **Layout** to keep hand-placed elements. Phones and portrait tablets get new layouts; landscape, TV, Watch, CarPlay and Mac decks keep theirs.
+- **Apply** writes the look as one undo step. Changing layout resets that screen's built-in placements (headline, devices, magnifier) to the layout defaults; lock **Layout** to keep hand-placed elements. Phones, portrait iPhone Duo and portrait tablets get new layouts; landscape, TV, Watch, CarPlay, Mac, header, search and universal decks keep theirs.
 - **Save** stars a look into `savedLooks` in the project file, listed under **Saved looks** next time.
 - **Export comparison** downloads one PNG with your deck and all four looks.
 

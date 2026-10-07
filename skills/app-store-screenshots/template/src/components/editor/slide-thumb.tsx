@@ -6,9 +6,9 @@ import { Copy, GripVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LAYOUT_LABEL } from "@/lib/constants";
 import { pickText } from "@/lib/locale";
-import type { Device, Orientation, Scene, Slide, Theme } from "@/lib/types";
+import type { Device, DuoFace, Orientation, Scene, Slide, Theme } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { DeckCanvas, SlideCanvas, getCanvas } from "./slide-canvas";
+import { DeckCanvas, SlideCanvas, deckLayout } from "./slide-canvas";
 
 type Props = {
   slide: Slide;
@@ -17,6 +17,7 @@ type Props = {
   active: boolean;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   theme: Theme;
   locale: string;
   appName?: string;
@@ -39,6 +40,7 @@ export function SlideThumb({
   active,
   device,
   orientation,
+  duoFace,
   theme,
   locale,
   appName,
@@ -56,13 +58,14 @@ export function SlideThumb({
     id: slide.id,
   });
 
-  const { cW, cH } = getCanvas(device, orientation);
-  const aspect = cW / cH;
-  const tileH = Math.max(34, Math.min(120, Math.round(THUMB_W / aspect)));
-  const scale = THUMB_W / cW;
   const start = connectedCanvas ? Math.max(0, index - 1) : index;
   const visibleSlides = connectedCanvas ? slides.slice(start, Math.min(slides.length, index + 2)) : [slide];
   const localIndex = index - start;
+  const layout = deckLayout(visibleSlides, device, orientation, duoFace);
+  const box = layout.boxes[localIndex] || layout.boxes[0];
+  const aspect = box.cW / box.cH;
+  const tileH = Math.max(34, Math.min(120, Math.round(THUMB_W / aspect)));
+  const scale = THUMB_W / box.cW;
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -101,11 +104,11 @@ export function SlideThumb({
         >
           <div
             style={{
-              width: cW * visibleSlides.length,
-              height: cH,
+              width: layout.totalW,
+              height: layout.height,
               position: "absolute",
               top: 0,
-              left: -localIndex * cW * scale,
+              left: -(layout.offsets[localIndex] || 0) * scale,
               transformOrigin: "top left",
               transform: `scale(${scale})`,
               pointerEvents: "none",
@@ -116,6 +119,7 @@ export function SlideThumb({
                 slides={visibleSlides}
                 device={device}
                 orientation={orientation}
+                duoFace={duoFace}
                 theme={theme}
                 locale={locale}
                 appName={appName}
@@ -132,6 +136,7 @@ export function SlideThumb({
                 slide={slide}
                 device={device}
                 orientation={orientation}
+                duoFace={duoFace}
                 theme={theme}
                 locale={locale}
                 appName={appName}
