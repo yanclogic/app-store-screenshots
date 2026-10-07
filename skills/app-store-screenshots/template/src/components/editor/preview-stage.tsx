@@ -7,19 +7,21 @@ import type {
   Device,
   ElementId,
   ElementTransform,
+  DuoFace,
   Orientation,
   Scene,
   SelectedElement,
   Slide,
   Theme,
 } from "@/lib/types";
-import { DeckCanvas, getCanvas } from "./slide-canvas";
+import { DeckCanvas, deckLayout } from "./slide-canvas";
 
 type Props = {
   slides: Slide[];
   activeSlideId: string | null;
   device: Device;
   orientation: Orientation;
+  duoFace?: DuoFace;
   theme: Theme;
   locale: string;
   appName?: string;
@@ -49,6 +51,7 @@ export function PreviewStage({
   activeSlideId,
   device,
   orientation,
+  duoFace,
   theme,
   locale,
   appName,
@@ -69,12 +72,16 @@ export function PreviewStage({
   const suppressNextActiveScreenPanRef = React.useRef(false);
   const [fitScale, setFitScale] = React.useState(0.2);
   const [zoom, setZoom] = React.useState(1);
-  const { cW, cH } = getCanvas(device, orientation);
-  const totalW = Math.max(1, slides.length) * cW;
-  const scale = fitScale * zoom;
+  const layout = deckLayout(slides, device, orientation, duoFace);
   const activeIndex = Math.max(0, slides.findIndex((slide) => slide.id === activeSlideId));
   const activeSlide = slides[activeIndex] || slides[0] || null;
   const activeId = activeSlide?.id;
+  const activeBox = layout.boxes[activeIndex] || { cW: layout.totalW, cH: layout.height };
+  const { cW, cH } = activeBox;
+  const totalW = layout.totalW;
+  const scale = fitScale * zoom;
+  const offsetsRef = React.useRef(layout.offsets);
+  offsetsRef.current = layout.offsets;
 
   React.useEffect(() => {
     const el = containerRef.current;
@@ -112,14 +119,14 @@ export function PreviewStage({
     const scroller = scrollerRef.current;
     if (!scroller) return;
     const sx = (scroller.clientWidth - PAD_X) / (totalW * fitScale);
-    const sy = (scroller.clientHeight - PAD_Y) / (cH * fitScale);
+    const sy = (scroller.clientHeight - PAD_Y) / (layout.height * fitScale);
     setZoom(clampZoom(Math.min(1, sx, sy)));
   };
 
   const panToActiveScreen = React.useCallback((nextScale: number) => {
     const scroller = scrollerRef.current;
     if (!scroller || !activeId) return;
-    const screenLeft = activeIndex * cW * nextScale;
+    const screenLeft = (offsetsRef.current[activeIndex] || 0) * nextScale;
     const screenWidth = cW * nextScale;
     const targetLeft = Math.max(0, screenLeft - (scroller.clientWidth - screenWidth) / 2);
     scroller.scrollTo({ left: targetLeft, behavior: "smooth" });
@@ -152,7 +159,7 @@ export function PreviewStage({
         <div
           style={{
             width: totalW * scale,
-            height: cH * scale,
+            height: layout.height * scale,
             position: "relative",
             flexShrink: 0,
             filter: "drop-shadow(0 32px 42px rgba(15, 23, 42, 0.18))",
@@ -161,7 +168,7 @@ export function PreviewStage({
           <div
             style={{
               width: totalW,
-              height: cH,
+              height: layout.height,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
             }}
@@ -170,6 +177,7 @@ export function PreviewStage({
               slides={slides}
               device={device}
               orientation={orientation}
+              duoFace={duoFace}
               theme={theme}
               locale={locale}
               appName={appName}

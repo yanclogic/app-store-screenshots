@@ -14,7 +14,7 @@ async function mock(browser: Browser, state = fixture()) {
   });
 }
 
-for (const device of ['iphone', 'ipad', 'tvos', 'watchos', 'carplay', 'mac', 'android', 'android-7', 'android-10', 'feature-graphic']) {
+for (const device of ['iphone', 'iphone-duo', 'ipad', 'tvos', 'watchos', 'carplay', 'header', 'search', 'universal', 'mac', 'android', 'android-7', 'android-10', 'feature-graphic']) {
   test(`${device} opens and edits its own deck`, async ({ app, browser, screen }) => {
     await mock(browser, fixture(device));
     await app.open('/');

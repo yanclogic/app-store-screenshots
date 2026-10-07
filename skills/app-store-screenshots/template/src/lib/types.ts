@@ -1,9 +1,13 @@
 export type Device =
   | "iphone"
+  | "iphone-duo"
   | "ipad"
   | "tvos"
   | "watchos"
   | "carplay"
+  | "header"
+  | "search"
+  | "universal"
   | "mac"
   | "android"
   | "android-7"
@@ -11,6 +15,8 @@ export type Device =
   | "feature-graphic";
 
 export type Orientation = "portrait" | "landscape";
+/** iPhone Duo face. Open is the inner display; closed is the outer display. */
+export type DuoFace = "inner" | "outer";
 
 export type Platform = "ios" | "macos" | "android";
 
@@ -101,6 +107,8 @@ export type Slide = {
   /** Optional relative font-size scales for built-in caption text. */
   typography?: SlideTypography;
   backgroundColor?: string;   // per-slide hex color override
+  /** iPhone Duo only. Absent follows the project face. */
+  duoFace?: DuoFace;
   // Per-element overrides; when present, replaces layout default placement.
   transforms?: Partial<Record<BuiltInElementId, ElementTransform>>;
   textElements?: TextElement[];
@@ -224,6 +232,8 @@ export type ProjectState = {
   locale: string;
   device: Device;
   orientation: Orientation;
+  /** iPhone Duo only. Absent means the open inner display. */
+  duoFace?: DuoFace;
   // Per-device slide decks so platform switching preserves work
   slidesByDevice: Record<Device, Slide[]>;
   appIcon?: string;    // path under /public (e.g. /app-icon.png)

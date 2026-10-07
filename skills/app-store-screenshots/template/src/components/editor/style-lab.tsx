@@ -75,7 +75,7 @@ export function StyleLab({
     [slots, base, locks],
   );
   // Size every deck preview so the whole strip fits the row without scrolling.
-  const { cW, cH } = getCanvas(state.device, state.orientation);
+  const { cW, cH } = getCanvas(state.device, state.orientation, state.duoFace);
   const previewH = Math.round(
     Math.max(
       PREVIEW_MIN_H,
@@ -391,7 +391,7 @@ function fontFamilyOf(project: ProjectState) {
 /** A whole deck, scaled to `height`, exactly as the export would render it. */
 function DeckPreview({ project, height }: { project: ProjectState; height: number }) {
   const slides = project.slidesByDevice[project.device] || [];
-  const { cW, cH } = getCanvas(project.device, project.orientation);
+  const { cW, cH } = getCanvas(project.device, project.orientation, project.duoFace);
   const scale = height / cH;
   return (
     <div
@@ -404,6 +404,7 @@ function DeckPreview({ project, height }: { project: ProjectState; height: numbe
           slides={slides}
           device={project.device}
           orientation={project.orientation}
+          duoFace={project.duoFace}
           theme={projectTheme(project.themeId, project.themeColors)}
           locale={project.locale}
           appName={project.appName}
@@ -429,7 +430,7 @@ const ComparisonBoard = React.forwardRef<
   { appName: string; rows: { title: string; project: ProjectState }[] }
 >(function ComparisonBoard({ appName, rows }, ref) {
   const first = rows[0].project;
-  const { cW, cH } = getCanvas(first.device, first.orientation);
+  const { cW, cH } = getCanvas(first.device, first.orientation, first.duoFace);
   const count = (first.slidesByDevice[first.device] || []).length;
   // Stay well under Safari's canvas limit for long or landscape decks.
   const rowH = Math.min(BOARD_ROW_H, Math.floor((BOARD_MAX_W - BOARD_PAD * 2) / Math.max(1, count) / (cW / cH)));

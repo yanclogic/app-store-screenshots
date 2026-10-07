@@ -6,6 +6,7 @@ import {
   DEFAULT_SCREENSHOT_FONT_ID,
   DEVICE_LABEL,
   getExportSizes,
+  resolveDuoFace,
   hasTheme,
   IMPORTED_FONT_FAMILY,
   SCREENSHOT_FONTS,
@@ -18,7 +19,7 @@ import { renderSlide } from "@/lib/export-render";
 import { exportAssetPaths } from "@/lib/export-assets";
 import { didFail, preloadImages } from "@/lib/image-cache";
 import { resolveScreenshot, writeLocalized } from "@/lib/locale";
-import { useProject } from "@/lib/storage";
+import { fitDuoSlidesToFace, slideForDuoFace, useProject } from "@/lib/storage";
 import type {
   BuiltInElementId,
   Device,
@@ -33,12 +34,23 @@ import type {
 import { Inspector } from "./inspector";
 import { PreviewStage } from "./preview-stage";
 import { Sidebar } from "./sidebar";
-import { DeckCanvas, getCanvas } from "./slide-canvas";
+import { DeckCanvas, deckLayout, getCanvas } from "./slide-canvas";
 import { StyleLab } from "./style-lab";
 import { Toolbar } from "./toolbar";
 
 export function ScreenshotEditor() {
   const { state, setState, hydrated, savedAt, saveError, retrySave, reset, resetDevice, undo, redo, canUndo, canRedo } = useProject();
+  // Closed layouts saved on the smaller canvas are lifted onto the shared page once.
+  React.useEffect(() => {
+    if (!hydrated) return;
+    const slides = state.slidesByDevice["iphone-duo"] || [];
+    const fitted = fitDuoSlidesToFace(slides, state.orientation, state.duoFace);
+    if (fitted === slides) return;
+    setState((p) => ({
+      ...p,
+      slidesByDevice: { ...p.slidesByDevice, "iphone-duo": fitted },
+    }), { history: false });
+  }, [hydrated, setState, state.duoFace, state.orientation, state.slidesByDevice]);
   const [activeSlideId, setActiveSlideId] = React.useState<string | null>(null);
   const [selectedElement, setSelectedElement] = React.useState<SelectedElement | null>(null);
   const [exporting, setExporting] = React.useState<string | null>(null);
@@ -95,6 +107,10 @@ export function ScreenshotEditor() {
   const assetPaths = React.useMemo(() => {
     const paths = new Set<string>();
     paths.add("/mockup.png");
+    paths.add("/duo-inner-portrait.png");
+    paths.add("/duo-inner-landscape.png");
+    paths.add("/duo-outer-portrait.png");
+    paths.add("/duo-outer-landscape.png");
     if (state.appIcon) paths.add(state.appIcon);
     // Preload every locale variant so bulk export doesn't race image loads.
     const allSlides: Slide[] = Object.values(state.slidesByDevice).flat();
@@ -527,8 +543,9 @@ export function ScreenshotEditor() {
     const { device, orientation, locales } = project;
     const slides = project.slidesByDevice[device] || [];
     const deviceName = DEVICE_LABEL[device];
-    const sizes = getExportSizes(device, orientation);
-    if (!slides.length || !sizes.length) return result;
+    const sizesFor = (slide: (typeof slides)[number]) =>
+      getExportSizes(device, orientation, resolveDuoFace(slide.duoFace, project.duoFace));
+    if (!slides.length || slides.every((slide) => sizesFor(slide).length === 0)) return result;
 
     const exportPaths = exportAssetPaths(project);
     await preloadImages(exportPaths, { retryFailed: true });
@@ -584,9 +601,8 @@ export function ScreenshotEditor() {
       }
     }
 
-    const { cW, cH } = getCanvas(device, orientation);
     const platform = detectPlatform(device);
-    result.totalUnits = sizes.length * locales.length * slides.length;
+    result.totalUnits = locales.length * slides.reduce((count, slide) => count + sizesFor(slide).length, 0);
     const totalRenders = locales.length * slides.length;
     let render = 0;
 
@@ -609,10 +625,12 @@ export function ScreenshotEditor() {
         const el = exportRef.current;
         if (!el) {
           await encoding;
-          result.failed += sizes.length;
+          result.failed += sizesFor(slide).length;
           result.errors.push(`${deviceName} ${locale} screen ${i + 1}: render target missing`);
           continue;
         }
+        const sizes = sizesFor(slide);
+        const { cW, cH } = getCanvas(device, orientation, resolveDuoFace(slide.duoFace, project.duoFace));
         const filename = `${String(i + 1).padStart(2, "0")}-${slide.layout}.png`;
         const label = `${deviceName} ${locale} screen ${i + 1}`;
         const fail = (e: unknown) => {
@@ -699,7 +717,8 @@ export function ScreenshotEditor() {
   const busy = !!exporting;
   const exportState = exportProject ?? state;
   const exportSlides = exportState.slidesByDevice[exportState.device] || [];
-  const exportCanvas = getCanvas(exportState.device, exportState.orientation);
+  const exportLayout = deckLayout(exportSlides, exportState.device, exportState.orientation, exportState.duoFace);
+  const exportCanvas = exportLayout.boxes[exportSlideIndex] || exportLayout.boxes[0] || getCanvas(exportState.device, exportState.orientation, exportState.duoFace);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
@@ -757,6 +776,7 @@ export function ScreenshotEditor() {
             activeId={activeSlide?.id || null}
             device={state.device}
             orientation={state.orientation}
+            duoFace={state.duoFace}
             theme={theme}
             locale={state.locale}
             appName={state.appName}
@@ -780,6 +800,7 @@ export function ScreenshotEditor() {
               activeSlideId={activeSlide.id}
               device={state.device}
               orientation={state.orientation}
+              duoFace={state.duoFace}
               theme={theme}
               locale={state.locale}
               appName={state.appName}
@@ -810,6 +831,24 @@ export function ScreenshotEditor() {
               slide={activeSlide}
               device={state.device}
               orientation={state.orientation}
+              duoFace={state.duoFace}
+              setDuoFace={(v) => setState((p) => {
+                if (p.device !== "iphone-duo") return p;
+                const slides = p.slidesByDevice["iphone-duo"] || [];
+                const current = slides.find((slide) => slide.id === activeSlide.id);
+                if (!current) return p;
+                const from = resolveDuoFace(current.duoFace, p.duoFace);
+                const to = v === "outer" ? "outer" : "inner";
+                if (from === to && current.duoFace === to) return p;
+                const next = slideForDuoFace(current, p.orientation, from, to);
+                return {
+                  ...p,
+                  slidesByDevice: {
+                    ...p.slidesByDevice,
+                    "iphone-duo": slides.map((slide) => (slide.id === current.id ? next : slide)),
+                  },
+                };
+              }, { history: false })}
               theme={theme}
               locale={state.locale}
               appIcon={state.appIcon}
@@ -884,16 +923,17 @@ export function ScreenshotEditor() {
             <div
               style={{
                 position: "absolute",
-                left: -exportSlideIndex * exportCanvas.cW,
+                left: -(exportLayout.offsets[exportSlideIndex] || 0),
                 top: 0,
-                width: exportCanvas.cW * exportSlides.length,
-                height: exportCanvas.cH,
+                width: exportLayout.totalW,
+                height: exportLayout.height,
               }}
             >
               <DeckCanvas
                 slides={exportSlides}
                 device={exportState.device}
                 orientation={exportState.orientation}
+                duoFace={exportState.duoFace}
                 theme={projectTheme(exportState.themeId, exportState.themeColors)}
                 locale={exportLocaleOverride ?? exportState.locale}
                 appName={exportState.appName}

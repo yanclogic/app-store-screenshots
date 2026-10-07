@@ -121,6 +121,17 @@ function tabletStarter(kind: "7" | "10"): Slide[] {
   ];
 }
 
+// Wide store assets (header, search, universal). Same layouts as a Mac deck,
+// with an iPhone frame on the banner instead of a window.
+function wideStoreStarter(headline: string): Slide[] {
+  return [
+    { id: nid(), layout: "hero", label: en("MEET YOUR APP"), headline: en(headline), screenshot: "" },
+    { id: nid(), layout: "split-landscape", label: en("FEATURE 01"), headline: en("One idea,\nfull width."), screenshot: "" },
+    { id: nid(), layout: "device-top", label: en("FEATURE 02"), headline: en("Flip the contrast."), screenshot: "", inverted: true },
+    { id: nid(), layout: "no-device", label: en("MORE"), headline: en("And so\nmuch more."), screenshot: "" },
+  ];
+}
+
 // Mac is contained like the TV, so "hero" and "device-bottom" would look alike;
 // the split and two-window slides give the wide canvas its rhythm instead.
 function macStarter(): Slide[] {
@@ -155,14 +166,19 @@ export const DEFAULT_PROJECT: ProjectState = {
   locale: DEFAULT_LOCALE,
   device: "iphone",
   orientation: "portrait",
+  duoFace: "inner",
   appIcon: "",
   slidesByDevice: {
     iphone: makeStarterSlides(),
+    "iphone-duo": makeStarterSlides(),
     android: makeStarterSlides(),
     ipad: ipadStarter(),
     tvos: tvStarter(),
     watchos: watchStarter(),
     carplay: carplayStarter(),
+    header: wideStoreStarter("First thing\nthey see."),
+    search: wideStoreStarter("Found before\nthey scroll."),
+    universal: wideStoreStarter("One image.\nBoth places."),
     mac: macStarter(),
     "android-7": tabletStarter("7"),
     "android-10": tabletStarter("10"),

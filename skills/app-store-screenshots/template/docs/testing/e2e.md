@@ -55,7 +55,7 @@ Use the default output directory for this suite's ZIP-content checks; the publis
 | Product flow | Verification |
 | --- | --- |
 | iOS, Mac, Android tabs and last selected device | Direct tab round-trip verifies device and preserved copy; UI harness verifies all combinations. |
-| iPhone, iPad, Apple TV, Watch, CarPlay, Mac, Android phone, 7-inch/10-inch tablets, feature graphic | Ten direct deck tests edit/create/undo on each device; browser harness exports every device at every advertised size and checks screenshot pixels. |
+| iPhone, iPhone Duo, iPad, Apple TV, Watch, CarPlay, header, search, universal 16:9, Mac, Android phone, 7-inch/10-inch tablets, feature graphic | Direct deck tests edit/create/undo on each device; browser harness exports every device at every advertised size and checks screenshot pixels. |
 | Portrait/landscape and every layout | UI harness iterates devices/layouts and both supported tablet orientations, checks editing/persistence. |
 | Screen create, select, duplicate, delete, empty state, reorder | Direct CRUD and keyboard reorder assertions; UI harness pointer/keyboard ordering, selected copy, final-slide deletion/undo and usable empty states. |
 | Undo/redo, cross-deck editing, shortcuts | Direct regression proves rapid copy edit + Add screen preserves copy after Undo on ten decks; harness checks typing, menu arrows, cross-deck history and undo/redo. |

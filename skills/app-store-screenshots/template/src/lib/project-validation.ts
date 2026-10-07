@@ -25,6 +25,9 @@ export function projectValidationError(value: unknown): string | null {
   if (value.orientation !== undefined && value.orientation !== "portrait" && value.orientation !== "landscape") {
     return "Unknown project orientation";
   }
+  if (value.duoFace !== undefined && value.duoFace !== "inner" && value.duoFace !== "outer") {
+    return "Unknown Duo screen";
+  }
   if (value.locales !== undefined && (!Array.isArray(value.locales) ||
       value.locales.some(locale => typeof locale !== "string" || !/^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$/.test(locale)) ||
       new Set(value.locales).size !== value.locales.length)) return "locales must be a list of unique locale codes";
@@ -50,6 +53,7 @@ export function projectValidationError(value: unknown): string | null {
       }
       if (!localized(slide.label) || !localized(slide.headline)) return `${device}: copy must be text or a locale-to-text object`;
       if (slide.inverted !== undefined && typeof slide.inverted !== "boolean") return `${device}: inverted must be a boolean`;
+      if (slide.duoFace !== undefined && slide.duoFace !== "inner" && slide.duoFace !== "outer") return `${device}: unknown Duo screen`;
       // Missing or out-of-range magnifier values are defaulted and clamped on load.
       if (slide.callout !== undefined && (!record(slide.callout) ||
         [slide.callout.focusX, slide.callout.focusY, slide.callout.zoom].some(n => n !== undefined && !finite(n)))) return `${device}: invalid callout`;

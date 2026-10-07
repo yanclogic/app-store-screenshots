@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_SCREENSHOT_FONT_ID, PROJECT_SCHEMA_VERSION, SCREENSHOT_FONTS, STORAGE_KEY, THEME_COLOR_LABEL } from "./constants";
+import { DEFAULT_SCREENSHOT_FONT_ID, PROJECT_SCHEMA_VERSION, SCREENSHOT_FONTS, STORAGE_KEY, THEME_COLOR_LABEL, duoCanvas } from "./constants";
 import { cleanHexColor } from "./clean-hex-color";
 import { cleanImportedFont } from "./clean-imported-font";
 import { DEFAULT_PROJECT } from "./defaults";
@@ -8,7 +8,7 @@ import { coerceLocalized } from "./locale";
 import { projectValidationError } from "./project-validation";
 import { cleanCallout, cleanLook, cleanScene } from "./scene";
 import { cleanTypography } from "./typography";
-import type { Device, ElementTransform, ImageElement, Look, ProjectState, ScreenshotFontId, Slide, TextElement, ThemeColorKey, ThemeColors } from "./types";
+import type { Device, DuoFace, ElementTransform, ImageElement, Look, Orientation, ProjectState, ScreenshotFontId, Slide, TextElement, ThemeColorKey, ThemeColors } from "./types";
 
 const HISTORY_LIMIT = 50;
 // Coalesce rapid edits (typing, slider drags) into a single undo step.
@@ -140,7 +140,62 @@ function migrateSlide(slide: Slide): Slide {
     ...(textElements && textElements.length > 0 ? { textElements } : { textElements: undefined }),
     ...(imageElements && imageElements.length > 0 ? { imageElements } : { imageElements: undefined }),
     ...(callout ? { callout } : { callout: undefined }),
+    ...(slide.duoFace === "inner" || slide.duoFace === "outer" ? { duoFace: slide.duoFace } : { duoFace: undefined }),
   };
+}
+
+function scaleTransform(transform: ElementTransform, sx: number, sy: number): ElementTransform {
+  return {
+    ...transform,
+    x: transform.x * sx,
+    y: transform.y * sy,
+    width: transform.width * sx,
+    height: transform.height * sy,
+  };
+}
+
+function scaleSlide(slide: Slide, sx: number, sy: number): Slide {
+  const transforms = slide.transforms
+    ? Object.fromEntries(
+        Object.entries(slide.transforms).map(([id, transform]) => [id, transform ? scaleTransform(transform, sx, sy) : transform]),
+      )
+    : undefined;
+  return {
+    ...slide,
+    ...(transforms ? { transforms: transforms as Slide["transforms"] } : {}),
+    ...(slide.textElements ? { textElements: slide.textElements.map((element) => ({ ...element, transform: scaleTransform(element.transform, sx, sy) })) } : {}),
+    ...(slide.imageElements ? { imageElements: slide.imageElements.map((element) => ({ ...element, transform: scaleTransform(element.transform, sx, sy) })) } : {}),
+  };
+}
+
+function slideBoxes(slide: Slide): ElementTransform[] {
+  return [
+    ...Object.values(slide.transforms || {}),
+    ...(slide.textElements || []).map((element) => element.transform),
+    ...(slide.imageElements || []).map((element) => element.transform),
+  ].filter((box): box is ElementTransform => !!box);
+}
+
+/** Face swaps the frame. The page size stays the design canvas, so positions are not rescaled. */
+export function slideForDuoFace(slide: Slide, _orientation: Orientation, _from: DuoFace, to: DuoFace): Slide {
+  return slide.duoFace === to ? slide : { ...slide, duoFace: to };
+}
+
+// Layouts saved on the smaller closed canvas are lifted onto the shared design canvas once.
+export function fitDuoSlidesToFace(slides: Slide[], orientation: Orientation, _face: DuoFace | undefined): Slide[] {
+  const canvas = duoCanvas(orientation, "inner");
+  const outer = duoCanvas(orientation, "outer");
+  let changed = false;
+  const next = slides.map((slide) => {
+    const boxes = slideBoxes(slide);
+    if (!boxes.length) return slide;
+    const fitsOuter = boxes.every((box) => box.width <= outer.cW + 1 && box.height <= outer.cH + 1);
+    const laidOutOnOuter = boxes.some((box) => box.width > outer.cW * 0.55 || box.height > outer.cH * 0.55);
+    if (!fitsOuter || !laidOutOnOuter) return slide;
+    changed = true;
+    return scaleSlide(slide, canvas.cW / outer.cW, canvas.cH / outer.cH);
+  });
+  return changed ? next : slides;
 }
 
 function mergeWithDefaults(parsed: Partial<ProjectState>): ProjectState {
@@ -178,10 +233,16 @@ function mergeWithDefaults(parsed: Partial<ProjectState>): ProjectState {
         ]),
       )
     : {};
+  const duoFace = parsed.duoFace === "outer" ? "outer" : "inner";
+  const orientation = parsed.orientation === "landscape" ? "landscape" : "portrait";
+  if (Array.isArray(slidesByDevice["iphone-duo"])) {
+    slidesByDevice["iphone-duo"] = fitDuoSlidesToFace(slidesByDevice["iphone-duo"] as Slide[], orientation, duoFace);
+  }
   const merged: ProjectState = {
     ...DEFAULT_PROJECT,
     ...parsed,
     schemaVersion: PROJECT_SCHEMA_VERSION,
+    duoFace,
     themeId,
     ...(themeColors ? { themeColors } : { themeColors: undefined }),
     fontId,
